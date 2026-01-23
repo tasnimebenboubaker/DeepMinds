@@ -15,10 +15,10 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onCartToggle, searchQuery, o
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl italic">
-            MT
+            OS
           </div>
           <span className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-            MyTech
+            OrbitStore
           </span>
         </div>
 

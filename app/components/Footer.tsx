@@ -8,15 +8,14 @@ const Footer: React.FC = () => {
         <div className="space-y-6">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold italic">
-              MT
+              OS
             </div>
             <span className="text-xl font-bold tracking-tight text-white">
-              MyTech
+              OrbitStore
             </span>
           </div>
           <p className="text-sm leading-relaxed opacity-70">
-            Premium electronics for the modern professional. 
-            Curated selection of high-performance tech with AI-guided shopping.
+            Evolution of Personal Tech & Style. Discover our curated collection of cutting-edge electronics and fashionable apparel, enhanced by AI insights to help you choose the perfect items for your lifestyle.
           </p>
           <div className="flex gap-4">
             {['Twitter', 'Instagram', 'Github'].map(icon => (
@@ -33,7 +32,7 @@ const Footer: React.FC = () => {
             <li><a href="#" className="hover:text-indigo-400 transition-colors">New Arrivals</a></li>
             <li><a href="#" className="hover:text-indigo-400 transition-colors">Best Sellers</a></li>
             <li><a href="#" className="hover:text-indigo-400 transition-colors">Deals & Offers</a></li>
-            <li><a href="#" className="hover:text-indigo-400 transition-colors">MyTech Pro</a></li>
+            <li><a href="#" className="hover:text-indigo-400 transition-colors">OrbitStore Pro</a></li>
           </ul>
         </div>
 
@@ -63,7 +62,7 @@ const Footer: React.FC = () => {
         </div>
       </div>
       <div className="container mx-auto px-4 mt-16 pt-8 border-t border-slate-800 text-xs text-center opacity-40">
-        &copy; {new Date().getFullYear()} MyTech. All rights reserved. Built with love.
+        &copy; {new Date().getFullYear()} OrbitStore. All rights reserved. Built with love.
       </div>
     </footer>
   );
