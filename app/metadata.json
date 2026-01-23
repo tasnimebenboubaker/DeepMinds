@@ -1,7 +1,7 @@
 
 {
-  "name": "ElectroGem - Premium Electronics Store",
-  "description": "A high-performance e-commerce platform for electronic products featuring smart search, budget filters, and AI-powered product insights.",
+  "name": "OrbitStore - Premium Electronics & Fashion Store",
+  "description": "Evolution of Personal Tech & Style. Discover our curated collection of cutting-edge electronics and fashionable apparel, enhanced by AI insights to help you choose the perfect items for your lifestyle.",
   "requestFramePermissions": [
     "camera",
     "microphone"

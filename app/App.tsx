@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PRODUCTS } from './constants';
-import { FilterState, Product, CartItem } from './types';
+import { FilterState, Product, CartItem, SortOption } from './types';
 import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
 import Filters from './components/Filters';
@@ -14,6 +14,7 @@ const DEFAULT_FILTERS: FilterState = {
   category: 'All',
   maxPrice: 2000,
   searchQuery: '',
+  sortBy: 'Featured',
 };
 
 const App: React.FC = () => {
@@ -27,19 +28,19 @@ const App: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        const savedCart = localStorage.getItem('electroGem_cart');
+        const savedCart = localStorage.getItem('orbitStore_cart');
         if (savedCart) {
           // setState différé pour éviter les rendus synchrones
           setTimeout(() => setCart(JSON.parse(savedCart)), 0);
         }
       } catch {
-        localStorage.removeItem('electroGem_cart');
+        localStorage.removeItem('orbitStore_cart');
       }
     })();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('electroGem_cart', JSON.stringify(cart));
+    localStorage.setItem('orbitStore_cart', JSON.stringify(cart));
   }, [cart]);
 
   // -------------------------
@@ -52,7 +53,7 @@ const App: React.FC = () => {
 
   const filteredProducts = useMemo(() => {
     const query = filters.searchQuery.trim().toLowerCase();
-    return PRODUCTS.filter((product) => {
+    let products = PRODUCTS.filter((product) => {
       const matchesCategory =
         filters.category === 'All' || product.category === filters.category;
       const matchesPrice = product.price <= filters.maxPrice;
@@ -62,6 +63,25 @@ const App: React.FC = () => {
         product.description.toLowerCase().includes(query);
       return matchesCategory && matchesPrice && matchesSearch;
     });
+
+    // Apply sorting
+    switch (filters.sortBy) {
+      case 'Price: Low to High':
+        products.sort((a, b) => a.price - b.price);
+        break;
+      case 'Price: High to Low':
+        products.sort((a, b) => b.price - a.price);
+        break;
+      case 'Top Rated':
+        products.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'Featured':
+      default:
+        // Keep original order for Featured
+        break;
+    }
+
+    return products;
   }, [filters]);
 
   // -------------------------
@@ -134,11 +154,10 @@ const App: React.FC = () => {
               </span>
               <h1 className="text-5xl md:text-6xl font-black text-white">
                 Evolution of <br />
-                <span className="text-indigo-500 italic">Personal</span> Tech.
+                <span className="text-indigo-500 italic">Personal</span> Tech & Style.
               </h1>
               <p className="text-slate-300 text-lg">
-                Discover our curated collection of electronics, enhanced by AI
-                insights to help you choose the best tools for your lifestyle.
+                Discover our curated collection of cutting-edge electronics and fashionable apparel, enhanced by AI insights to help you choose the perfect items for your lifestyle.
               </p>
               <button
                 onClick={scrollToProducts}
@@ -163,7 +182,7 @@ const App: React.FC = () => {
                 <h2 className="text-2xl font-black text-slate-800">
                   {filters.category === 'All'
                     ? 'Collection'
-                    : `${filters.category} Gadgets`}
+                    : `${filters.category}`}
                 </h2>
                 <p className="text-slate-400 text-sm">
                   Showing {filteredProducts.length} items
@@ -174,7 +193,11 @@ const App: React.FC = () => {
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                   Sort By:
                 </span>
-                <select className="bg-white border border-slate-200 rounded-lg text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                <select
+                  value={filters.sortBy}
+                  onChange={(e) => handleFilterUpdate({ sortBy: e.target.value as SortOption })}
+                  className="bg-white border border-slate-200 rounded-lg text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                >
                   <option>Featured</option>
                   <option>Price: Low to High</option>
                   <option>Price: High to Low</option>
@@ -196,7 +219,7 @@ const App: React.FC = () => {
             ) : (
               <div className="text-center py-32 bg-white rounded-3xl border border-dashed border-slate-300">
                 <h3 className="text-xl font-bold text-slate-800 mb-2">
-                  No gadgets found
+                  No items found
                 </h3>
                 <p className="text-slate-400">
                   Try adjusting your budget or search keywords to find what

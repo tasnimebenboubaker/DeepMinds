@@ -3,8 +3,8 @@ import './globals.css'; // ton CSS global (ex: Tailwind)
 import React from 'react';
 
 export const metadata = {
-  title: 'ElectroGem - Premium Tech',
-  description: 'Discover premium electronics and gadgets',
+  title: 'OrbitStore - Premium Tech & Fashion',
+  description: 'Evolution of Personal Tech & Style. Discover our curated collection of cutting-edge electronics and fashionable apparel, enhanced by AI insights to help you choose the perfect items for your lifestyle.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
