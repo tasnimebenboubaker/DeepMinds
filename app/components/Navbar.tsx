@@ -1,60 +1,62 @@
-"use client";
-import React, { useState } from "react";
 
-export default function Navbar({
-  cartCount = 0,
-  onCartToggle,
-}: {
-  cartCount?: number;
-  onCartToggle?: () => void;
-}) {
-  const [searchQuery, setSearchQuery] = useState("");
+import React from 'react';
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Searching for:", searchQuery);
-    // Add search functionality here
-  };
+interface NavbarProps {
+  cartCount: number;
+  onCartToggle: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+}
 
+const Navbar: React.FC<NavbarProps> = ({ cartCount, onCartToggle, searchQuery, onSearchChange }) => {
   return (
-    <header className="site-header w-full border-b">
-      <div className="container mx-auto flex items-center justify-between px-6 py-4">
-        <a className="text-2xl font-bold" href="#">
-          MyTeck
-        </a>
-        <nav className="flex items-center gap-6">
-          <a className="text-sm muted" href="#">Home</a>
-          <a className="text-sm muted" href="#products">Products</a>
-          <a className="text-sm muted" href="#about">About</a>
-          
-          <form onSubmit={handleSearch} className="flex items-center">
+    <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 py-4">
+      <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl italic">
+            MT
+          </div>
+          <span className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+            MyTech
+          </span>
+        </div>
+
+        {/* Search Bar */}
+        <div className="flex-1 max-w-xl w-full">
+          <div className="relative">
             <input
               type="text"
-              placeholder="Search products..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-3 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search gadgets, specs, categories..."
+              className="w-full bg-slate-100 border-none rounded-full px-6 py-2 focus:ring-2 focus:ring-indigo-500 transition-all"
             />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600"
-            >
-              Search
-            </button>
-          </form>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
 
-          <button
-            aria-label="Open cart"
-            onClick={onCartToggle}
-            className="relative inline-flex items-center gap-2 btn btn-primary"
-          >
-            <span>Cart</span>
-            <span className="ml-1 badge">
+        {/* Cart Trigger */}
+        <button 
+          onClick={onCartToggle}
+          className="relative p-2 text-slate-600 hover:text-indigo-600 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          {cartCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-bounce">
               {cartCount}
             </span>
-          </button>
-        </nav>
+          )}
+        </button>
       </div>
-    </header>
+    </nav>
   );
-}
+};
+
+export default Navbar;

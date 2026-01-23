@@ -1,0 +1,9 @@
+
+{
+  "name": "ElectroGem - Premium Electronics Store",
+  "description": "A high-performance e-commerce platform for electronic products featuring smart search, budget filters, and AI-powered product insights.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
