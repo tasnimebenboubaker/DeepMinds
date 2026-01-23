@@ -35,7 +35,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
         </p>
 
         <div className="flex flex-wrap gap-2 mb-4">
-          {product.specs.slice(0, 2).map((spec, i) => (
+          {product.specs && Array.isArray(product.specs) && product.specs.slice(0, 2).map((spec, i) => (
             <span 
               key={i} 
               className="text-[10px] uppercase tracking-wider font-semibold bg-slate-100 text-slate-500 px-2 py-1 rounded-md border border-slate-200"
