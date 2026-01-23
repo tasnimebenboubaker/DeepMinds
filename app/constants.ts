@@ -5,7 +5,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '1',
     name: 'Nebula Pro Smartphone',
-    category: 'Smartphones',
+    category: 'Electronics',
     price: 899,
     description: 'The ultimate flagship experience with a 120Hz AMOLED display and pro-grade cameras.',
     image: 'https://picsum.photos/id/1/600/600',
@@ -15,7 +15,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '2',
     name: 'ZenBook Elite 14',
-    category: 'Laptops',
+    category: 'Electronics',
     price: 1299,
     description: 'Powerful performance meets portability in this sleek aluminum chassis.',
     image: 'https://picsum.photos/id/2/600/600',
@@ -25,7 +25,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '3',
     name: 'SonicWave ANC Headphones',
-    category: 'Audio',
+    category: 'Electronics',
     price: 249,
     description: 'Industry-leading noise cancellation with spatial audio support.',
     image: 'https://picsum.photos/id/3/600/600',
@@ -35,7 +35,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '4',
     name: 'Titan Watch Series 5',
-    category: 'Wearables',
+    category: 'Electronics',
     price: 399,
     description: 'Track your fitness, health, and stay connected on the go.',
     image: 'https://picsum.photos/id/4/600/600',
@@ -45,7 +45,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '5',
     name: 'PixelTab Pro',
-    category: 'Tablets',
+    category: 'Electronics',
     price: 649,
     description: 'Perfect for creators and entertainment on a stunning 12-inch display.',
     image: 'https://picsum.photos/id/5/600/600',
@@ -55,7 +55,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '6',
     name: 'Lumina X Smartphone',
-    category: 'Smartphones',
+    category: 'Electronics',
     price: 599,
     description: 'Exceptional camera quality in a compact, stylish design.',
     image: 'https://picsum.photos/id/6/600/600',
@@ -65,7 +65,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '7',
     name: 'Apex Gaming Laptop',
-    category: 'Laptops',
+    category: 'Electronics',
     price: 1899,
     description: 'Dominate the competition with ultra-high frame rates and RGB lighting.',
     image: 'https://picsum.photos/id/7/600/600',
@@ -75,7 +75,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '8',
     name: 'Buds Pro Wireless',
-    category: 'Audio',
+    category: 'Electronics',
     price: 129,
     description: 'True wireless freedom with punchy bass and clear vocals.',
     image: 'https://picsum.photos/id/8/600/600',
@@ -85,7 +85,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '9',
     name: 'Urban Denim Jacket',
-    category: 'Clothes',
+    category: 'Men\'s Clothing',
     price: 89,
     description: 'Classic denim jacket with modern fit and premium quality stitching.',
     image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&h=600&fit=crop',
@@ -95,7 +95,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '10',
     name: 'Athletic Performance Tee',
-    category: 'Clothes',
+    category: 'Men\'s Clothing',
     price: 29,
     description: 'Moisture-wicking fabric perfect for workouts and casual wear.',
     image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=600&fit=crop',
@@ -105,7 +105,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '11',
     name: 'Premium Wool Sweater',
-    category: 'Clothes',
+    category: 'Women\'s Clothing',
     price: 149,
     description: 'Luxurious merino wool sweater with impeccable craftsmanship.',
     image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=600&h=600&fit=crop',
@@ -115,7 +115,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '12',
     name: 'Casual Chinos',
-    category: 'Clothes',
+    category: 'Men\'s Clothing',
     price: 59,
     description: 'Versatile cotton chinos that transition seamlessly from office to weekend.',
     image: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=600&h=600&fit=crop',
@@ -124,4 +124,4 @@ export const PRODUCTS: Product[] = [
   }
 ];
 
-export const CATEGORIES: string[] = ['All', 'Smartphones', 'Laptops', 'Audio', 'Wearables', 'Tablets', 'Clothes'];
+export const CATEGORIES: string[] = ['All', 'Men\'s clothing', 'Women\'s clothing', 'Jewelery', 'Electronics', 'Home appliances', 'Sports & Outdoors'];
