@@ -1,5 +1,5 @@
 
-export type Category = 'All' | 'Smartphones' | 'Laptops' | 'Audio' | 'Wearables' | 'Tablets' | 'Clothes';
+export type Category = 'All' | 'Men\'s Clothing' | 'Women\'s Clothing' | 'Jewelery' | 'Electronics' | 'Home Appliances' | 'Sports & Outdoors';
 
 export interface Product {
   id: string;

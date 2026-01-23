@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { PRODUCTS } from './constants';
 import { FilterState, Product, CartItem, SortOption } from './types';
 import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
@@ -21,6 +20,9 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // -------------------------
   // Load cart safely from localStorage
@@ -43,6 +45,28 @@ const App: React.FC = () => {
     localStorage.setItem('orbitStore_cart', JSON.stringify(cart));
   }, [cart]);
 
+  // Fetch products from MongoDB
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/products');
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+        const data = await response.json();
+        setProducts(data);
+      } catch (err) {
+        console.error('Error fetching products:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch products');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
   // -------------------------
   // Derived state
   // -------------------------
@@ -53,7 +77,7 @@ const App: React.FC = () => {
 
   const filteredProducts = useMemo(() => {
     const query = filters.searchQuery.trim().toLowerCase();
-    let products = PRODUCTS.filter((product) => {
+    const productsList = products.filter((product) => {
       const matchesCategory =
         filters.category === 'All' || product.category === filters.category;
       const matchesPrice = product.price <= filters.maxPrice;
@@ -67,13 +91,13 @@ const App: React.FC = () => {
     // Apply sorting
     switch (filters.sortBy) {
       case 'Price: Low to High':
-        products.sort((a, b) => a.price - b.price);
+        productsList.sort((a, b) => a.price - b.price);
         break;
       case 'Price: High to Low':
-        products.sort((a, b) => b.price - a.price);
+        productsList.sort((a, b) => b.price - a.price);
         break;
       case 'Top Rated':
-        products.sort((a, b) => b.rating - a.rating);
+        productsList.sort((a, b) => b.rating - a.rating);
         break;
       case 'Featured':
       default:
@@ -81,8 +105,8 @@ const App: React.FC = () => {
         break;
     }
 
-    return products;
-  }, [filters]);
+    return productsList;
+  }, [filters, products]);
 
   // -------------------------
   // Handlers
@@ -206,7 +230,33 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {filteredProducts.length ? (
+            {loading ? (
+              <div className="text-center py-32 bg-white rounded-3xl border border-slate-200">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">
+                  Loading products...
+                </h3>
+                <p className="text-slate-400">
+                  Fetching the latest products from our database.
+                </p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-32 bg-white rounded-3xl border border-red-200">
+                <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">
+                  Failed to load products
+                </h3>
+                <p className="text-slate-400 mb-4">
+                  {error}
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : filteredProducts.length ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 {filteredProducts.map((product) => (
                   <ProductCard
