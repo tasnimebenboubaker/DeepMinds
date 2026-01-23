@@ -81,7 +81,47 @@ export const PRODUCTS: Product[] = [
     image: 'https://picsum.photos/id/8/600/600',
     rating: 4.3,
     specs: ['IPX7 Rating', 'Wireless Charging', '6h + 24h Case']
+  },
+  {
+    id: '9',
+    name: 'Urban Denim Jacket',
+    category: 'Clothes',
+    price: 89,
+    description: 'Classic denim jacket with modern fit and premium quality stitching.',
+    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&h=600&fit=crop',
+    rating: 4.6,
+    specs: ['100% Cotton', 'Machine Washable', 'Slim Fit']
+  },
+  {
+    id: '10',
+    name: 'Athletic Performance Tee',
+    category: 'Clothes',
+    price: 29,
+    description: 'Moisture-wicking fabric perfect for workouts and casual wear.',
+    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=600&fit=crop',
+    rating: 4.4,
+    specs: ['Polyester Blend', 'Quick Dry', 'UV Protection']
+  },
+  {
+    id: '11',
+    name: 'Premium Wool Sweater',
+    category: 'Clothes',
+    price: 149,
+    description: 'Luxurious merino wool sweater with impeccable craftsmanship.',
+    image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=600&h=600&fit=crop',
+    rating: 4.8,
+    specs: ['100% Merino Wool', 'Hand Wash', 'Regular Fit']
+  },
+  {
+    id: '12',
+    name: 'Casual Chinos',
+    category: 'Clothes',
+    price: 59,
+    description: 'Versatile cotton chinos that transition seamlessly from office to weekend.',
+    image: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=600&h=600&fit=crop',
+    rating: 4.5,
+    specs: ['98% Cotton', 'Machine Washable', 'Straight Leg']
   }
 ];
 
-export const CATEGORIES: string[] = ['All', 'Smartphones', 'Laptops', 'Audio', 'Wearables', 'Tablets'];
+export const CATEGORIES: string[] = ['All', 'Smartphones', 'Laptops', 'Audio', 'Wearables', 'Tablets', 'Clothes'];
