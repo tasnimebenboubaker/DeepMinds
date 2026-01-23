@@ -1,0 +1,9 @@
+
+{
+  "name": "OrbitStore - Premium Electronics & Fashion Store",
+  "description": "Evolution of Personal Tech & Style. Discover our curated collection of cutting-edge electronics and fashionable apparel, enhanced by AI insights to help you choose the perfect items for your lifestyle.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
