@@ -1,15 +1,23 @@
 
 export type Category = 'All' | 'Men\'s Clothing' | 'Women\'s Clothing' | 'Jewelery' | 'Electronics' | 'Home Appliances' | 'Sports & Outdoors';
 
+export interface Rating {
+  rate: number;
+  count: number;
+}
+
 export interface Product {
   id: string;
   name: string;
+  title?: string;
   category: Category;
   price: number;
   description: string;
   image: string;
-  rating: number;
-  specs: string[];
+  rating?: number | Rating;
+  specs?: string[];
+  payment_methods?: string[];
+  availability?: boolean;
 }
 
 export interface CartItem extends Product {
