@@ -83,7 +83,6 @@ const App: React.FC = () => {
 
     fetchProducts();
   }, []);
-
   // -------------------------
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
