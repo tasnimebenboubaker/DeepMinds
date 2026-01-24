@@ -1,6 +1,10 @@
 
+'use client';
+
 import React from 'react';
+import Link from 'next/link';
 import { CartItem } from '../types';
+import { getAzureBlobUrl, isValidBlobUrl } from '../lib/azure';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -14,6 +18,13 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, items, onRemov
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   if (!isOpen) return null;
+
+  // Helper function to get correct image URL
+  const getImageUrl = (imagePath: string) => {
+    return isValidBlobUrl(imagePath) 
+      ? imagePath 
+      : getAzureBlobUrl(imagePath);
+  };
 
   return (
     <>
@@ -46,7 +57,14 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, items, onRemov
             items.map((item) => (
               <div key={item.id} className="flex gap-4 group">
                 <div className="w-20 h-20 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-100">
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                  <img 
+                    src={getImageUrl(item.image)} 
+                    alt={item.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23e2e8f0" width="100" height="100"/%3E%3Ctext x="50" y="50" font-size="12" fill="%2394a3b8" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+                    }}
+                  />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between">
@@ -89,9 +107,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, items, onRemov
               <span className="text-2xl font-black text-slate-800">${total.toLocaleString()}</span>
             </div>
             <p className="text-xs text-slate-400 text-center">Shipping and taxes calculated at checkout</p>
-            <button className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95">
-              Secure Checkout
-            </button>
+            <Link href="/checkout" onClick={onClose}>
+              <button className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95">
+                Confirm & Pay
+              </button>
+            </Link>
           </div>
         )}
       </div>

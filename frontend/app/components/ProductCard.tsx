@@ -1,13 +1,74 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, Rating } from '../types';
 import { getAzureBlobUrl, isValidBlobUrl } from '../lib/azure';
+import { useAuth } from '../lib/authContext';
+import { updateUserPreferences } from '../lib/userPreferencesSync';
 
 interface ProductCardProps {
   product: Product;
   onAddToCart: (product: Product) => void;
+  onToggleWishlist?: (product: Product) => void;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onToggleWishlist }) => {
+  const { user } = useAuth();
+  const [isWishlisted, setIsWishlisted] = useState(false);
+
+  // Check if product is in wishlist on mount
+  useEffect(() => {
+    const wishlist = JSON.parse(localStorage.getItem('orbitStore_wishlist') || '[]');
+    setIsWishlisted(wishlist.some((item: any) => item.id === product.id));
+  }, [product.id]);
+
+  const handleToggleWishlist = async () => {
+    const wishlist = JSON.parse(localStorage.getItem('orbitStore_wishlist') || '[]');
+    
+    if (isWishlisted) {
+      // Remove from wishlist
+      const updatedWishlist = wishlist.filter((item: any) => item.id !== product.id);
+      localStorage.setItem('orbitStore_wishlist', JSON.stringify(updatedWishlist));
+      
+      // Remove from database if user is logged in
+      if (user?.uid) {
+        try {
+          await fetch('/api/users/wishlist', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: user.uid, productId: product.id }),
+          });
+          // Sync user preferences after wishlist change
+          await updateUserPreferences(user.uid);
+        } catch (error) {
+          console.error('Failed to remove from wishlist in database:', error);
+        }
+      }
+    } else {
+      // Add to wishlist
+      wishlist.push(product);
+      localStorage.setItem('orbitStore_wishlist', JSON.stringify(wishlist));
+      
+      // Add to database if user is logged in
+      if (user?.uid) {
+        try {
+          await fetch('/api/users/wishlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: user.uid, product }),
+          });
+          // Sync user preferences after wishlist change
+          await updateUserPreferences(user.uid);
+        } catch (error) {
+          console.error('Failed to add to wishlist in database:', error);
+        }
+      }
+    }
+    
+    setIsWishlisted(!isWishlisted);
+    if (onToggleWishlist) {
+      onToggleWishlist(product);
+    }
+  };
+
   // Construct the full image URL from Azure blob storage
   const imageUrl = isValidBlobUrl(product.image) 
     ? product.image 
@@ -49,6 +110,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
             {isAvailable ? 'In Stock' : 'Out of Stock'}
           </span>
         </div>
+
+        {/* Wishlist Button */}
+        <button
+          onClick={handleToggleWishlist}
+          className={`absolute bottom-3 right-3 p-2 rounded-full transition-all ${
+            isWishlisted
+              ? 'bg-red-500 text-white shadow-lg'
+              : 'bg-white/90 text-slate-400 hover:text-red-500 hover:bg-white shadow-sm'
+          }`}
+        >
+          <svg 
+            className="w-5 h-5" 
+            fill={isWishlisted ? 'currentColor' : 'none'} 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+        </button>
       </div>
       
       <div className="p-5 flex-1 flex flex-col">

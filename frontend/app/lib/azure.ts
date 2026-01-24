@@ -23,8 +23,6 @@ export function getAzureBlobUrl(imagePath: string): string {
   // Combine the base URL with just the filename
   const fullUrl = `${normalizedBaseUrl}${filename}`;
   
-  console.log('Azure Blob URL:', fullUrl); // Debug log
-  
   return fullUrl;
 }
 

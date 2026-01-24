@@ -32,3 +32,22 @@ export interface FilterState {
   searchQuery: string;
   sortBy: SortOption;
 }
+export interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+  category: Category;
+}
+
+export interface Order {
+  id: string;
+  userId: string;
+  items: OrderItem[];
+  total: number;
+  paymentMethod: string;
+  status: 'pending' | 'completed' | 'shipped' | 'delivered' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+}

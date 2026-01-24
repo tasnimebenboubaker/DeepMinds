@@ -1,6 +1,7 @@
 // app/layout.tsx
 import './globals.css'; // ton CSS global (ex: Tailwind)
 import React from 'react';
+import { AuthProvider } from './lib/authContext';
 
 export const metadata = {
   title: 'OrbitStore - Premium Tech & Fashion',
@@ -19,7 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="bg-slate-50 text-slate-900 font-inter">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
