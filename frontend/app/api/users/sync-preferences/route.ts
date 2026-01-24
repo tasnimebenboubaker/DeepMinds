@@ -3,6 +3,7 @@ import { connectToDatabase } from '../../../lib/mongodb';
 
 const COLLECTION_NAME = 'users';
 
+
 // Sync user preferences - calculate categories from wishlist + purchases
 export async function POST(request: NextRequest) {
   try {

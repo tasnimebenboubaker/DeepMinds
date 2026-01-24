@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
 
     const db = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
+    
     const user = await collection.findOne(
       { uid },
       { projection: { purchases: 1, budgetRange: 1, preferredPaymentMethod: 1 } }

@@ -29,6 +29,7 @@ export default function CheckoutPage() {
     }
   }, [user, loading, router]);
 
+  
   // Calculate available payment methods (intersection of all products)
   const getAvailablePaymentMethods = () => {
     if (cartItems.length === 0) {

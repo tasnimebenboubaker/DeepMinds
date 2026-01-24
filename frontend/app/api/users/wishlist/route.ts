@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const collection = db.collection(COLLECTION_NAME);
     const user = await collection.findOne({ uid }, { projection: { wishlist: 1 } });
 
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },

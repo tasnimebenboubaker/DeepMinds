@@ -85,8 +85,6 @@ const App: React.FC = () => {
   }, []);
 
   // -------------------------
-  // Derived state
-  // -------------------------
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
     [cart]

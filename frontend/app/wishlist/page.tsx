@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Product } from '../types';
-import { getAzureBlobUrl, isValidBlobUrl } from '../lib/azure';
+import { getAzureBlobUrl , isValidBlobUrl } from '../lib/azure';
 
 export default function WishlistPage() {
   const router = useRouter();
   const [wishlist, setWishlist] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load wishlist from localStorage
+  // Load wishlist from localStorage on mount
   useEffect(() => {
     setLoading(true);
     const savedWishlist = localStorage.getItem('orbitStore_wishlist');

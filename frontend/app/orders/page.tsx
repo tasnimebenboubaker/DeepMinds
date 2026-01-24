@@ -34,18 +34,20 @@ export default function OrdersPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Redirect if not logged in
+    // Redirect if not logged in 
+
     if (!loading && !user) {
       router.push('/login');
       return;
     }
 
-    // Fetch orders
+    // Fetch orders 
     if (user?.uid) {
       fetchOrders();
     }
   }, [user, loading, router]);
 
+  
   const fetchOrders = async () => {
     try {
       setIsLoading(true);

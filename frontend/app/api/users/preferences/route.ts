@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    
     // Build user profile for recommendation system
     const userProfile = {
       uid,
