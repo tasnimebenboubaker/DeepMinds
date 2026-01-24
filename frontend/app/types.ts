@@ -3,7 +3,7 @@ export type Category = 'All' | 'Men\'s Clothing' | 'Women\'s Clothing' | 'Jewele
 
 export interface Product {
   id: string;
-  name: string;
+  title: string;
   category: Category;
   price: number;
   description: string;

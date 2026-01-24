@@ -83,7 +83,7 @@ const App: React.FC = () => {
       const matchesPrice = product.price <= filters.maxPrice;
       const matchesSearch =
         !query ||
-        product.name.toLowerCase().includes(query) ||
+        product.title.toLowerCase().includes(query) ||
         product.description.toLowerCase().includes(query);
       return matchesCategory && matchesPrice && matchesSearch;
     });
