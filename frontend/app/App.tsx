@@ -47,6 +47,22 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // -------------------------
+  // Load cart safely from localStorage
+  // -------------------------
+  useEffect(() => {
+    (async () => {
+      try {
+        const savedCart = localStorage.getItem('orbitStore_cart');
+        if (savedCart) {
+          // setState différé pour éviter les rendus synchrones
+          setTimeout(() => setCart(JSON.parse(savedCart)), 0);
+        }
+      } catch {
+        localStorage.removeItem('orbitStore_cart');
+      }
+    })();
+  }, []);
+
   // Load cart from localStorage on mount with useLayoutEffect
   // This runs BEFORE the first paint
   // -------------------------
@@ -83,6 +99,9 @@ const App: React.FC = () => {
 
     fetchProducts();
   }, []);
+
+  // -------------------------
+  // Derived state
   // -------------------------
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
@@ -105,6 +124,7 @@ const App: React.FC = () => {
       const matchesPrice = product.price <= filters.maxPrice;
       const matchesSearch =
         !query ||
+        product.title.toLowerCase().includes(query) ||
         product.name.toLowerCase().includes(query) ||
         product.description.toLowerCase().includes(query);
       return matchesCategory && matchesPrice && matchesSearch;
@@ -119,6 +139,7 @@ const App: React.FC = () => {
         productsList.sort((a, b) => b.price - a.price);
         break;
       case 'Top Rated':
+        productsList.sort((a, b) => b.rating - a.rating);
         productsList.sort((a, b) => getRatingValue(b.rating) - getRatingValue(a.rating));
         break;
       case 'Featured':
