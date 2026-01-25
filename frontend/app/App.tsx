@@ -72,7 +72,19 @@ const App: React.FC = () => {
           throw new Error('Failed to fetch products');
         }
         const data = await response.json();
-        setProducts(data);
+        
+        // Normalize product data: ensure id field exists
+        const normalizedProducts = (Array.isArray(data) ? data : []).map((product: any) => ({
+          ...product,
+          id: product.id || product._id?.toString?.() || Math.random().toString(36).substr(2, 9),
+          name: product.name || product.title || '',
+          description: product.description || '',
+          price: product.price || 0,
+          category: product.category || 'Electronics',
+          image: product.image || '',
+        }));
+        
+        setProducts(normalizedProducts);
       } catch (err) {
         console.error('Error fetching products:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
@@ -103,10 +115,15 @@ const App: React.FC = () => {
       const matchesCategory =
         filters.category === 'All' || product.category === filters.category;
       const matchesPrice = product.price <= filters.maxPrice;
+      
+      // Safe search with fallback for name/title fields
+      const productName = (product.name || product.title || '').toLowerCase();
+      const productDescription = (product.description || '').toLowerCase();
       const matchesSearch =
         !query ||
-        product.name.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query);
+        productName.includes(query) ||
+        productDescription.includes(query);
+      
       return matchesCategory && matchesPrice && matchesSearch;
     });
 

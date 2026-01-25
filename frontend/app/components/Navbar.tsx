@@ -5,6 +5,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../lib/authContext';
+import { useUserPreferences } from '../lib/useUserPreferences';
+import { searchProducts } from '../lib/searchService';
 
 interface NavbarProps {
   cartCount: number;
@@ -15,9 +17,12 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ cartCount, onCartToggle, searchQuery, onSearchChange }) => {
   const { user, logout, loading } = useAuth();
+  const { budgetRange, preferences, preferredPaymentMethod, loading: prefsLoading } = useUserPreferences();
   const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // Only show cartCount after hydration
   React.useEffect(() => {
@@ -31,6 +36,46 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onCartToggle, searchQuery, o
       router.push('/login');
     } catch (err) {
       console.error('Logout error:', err);
+    }
+  };
+
+  const handleSearchSubmit = async (e: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLInputElement>) => {
+    if ('preventDefault' in e) {
+      e.preventDefault();
+    }
+    
+    if (!user) {
+      setSearchError('Please sign in to search');
+      setTimeout(() => setSearchError(null), 3000);
+      return;
+    }
+
+    if (!searchQuery.trim()) {
+      setSearchError('Please enter a search query');
+      setTimeout(() => setSearchError(null), 3000);
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+
+    try {
+      const results = await searchProducts(
+        searchQuery,
+        user.uid,
+        budgetRange,
+        preferences,
+        preferredPaymentMethod,
+        10
+      );
+      
+      
+      // TODO: Display results to user (e.g., show modal or navigate to results page)
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Search failed');
+      setTimeout(() => setSearchError(null), 3000);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -48,22 +93,39 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onCartToggle, searchQuery, o
         </Link>
 
         {/* Search Bar */}
-        <div className="flex-1 max-w-xl w-full">
+        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-xl w-full">
           <div className="relative">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search gadgets, specs, categories..."
-              className="w-full bg-slate-100 border-none rounded-full px-6 py-2 focus:ring-2 focus:ring-indigo-500 transition-all"
+              onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit(e)}
+              placeholder={user ? "Search gadgets, specs, categories..." : "Sign in to search..."}
+              disabled={isSearching || !user}
+              className="w-full bg-slate-100 border-none rounded-full px-6 py-2 focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
+            <button
+              type="submit"
+              disabled={isSearching || !user}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 disabled:opacity-50 transition-colors"
+            >
+              {isSearching ? (
+                <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              )}
+            </button>
           </div>
-        </div>
+          {searchError && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-red-50 text-red-600 text-sm p-2 rounded-lg border border-red-200">
+              {searchError}
+            </div>
+          )}
+        </form>
 
         {/* Right Section - Cart & Auth */}
         <div className="flex items-center gap-4">
