@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-from sentence_transformers import SentenceTransformer
+from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import (
     PointStruct,
@@ -16,20 +16,40 @@ from io import BytesIO
 import uuid
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # --- 1️⃣ Connect to MongoDB ---
-client = MongoClient(
-    "mongodb+srv://benboubakertasnime:DSm2dnxmheBjwfOn@clusterdm.imp1loy.mongodb.net/?appName=ClusterDM"
-)
-db = client["DataBaseDM"]
+MONGODB_URI = os.getenv("MONGODB_URI")
+DB_NAME = os.getenv("DB_NAME", "DataBaseDM")
+
+if not MONGODB_URI:
+    raise ValueError("MONGODB_URI environment variable is not set")
+
+client = MongoClient(MONGODB_URI)
+db = client[DB_NAME]
 collection = db["Products"]
 
-# --- 2️⃣ Generate TEXT embeddings (dense) ---
-dense_model = SentenceTransformer("all-MiniLM-L6-v2")
+# --- 2️⃣ Generate TEXT embeddings (dense) using OpenAI ---
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
+
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 documents = list(collection.find({}))
 texts = [doc.get("description", "") for doc in documents if doc.get("description")]
-dense_embeddings = dense_model.encode(texts)
-VECTOR_SIZE = len(dense_embeddings[0])  # dimension dense
+
+# Get embeddings from OpenAI API
+response = openai_client.embeddings.create(
+    model="text-embedding-3-small",
+    input=texts
+)
+
+dense_embeddings = [item.embedding for item in response.data]
+TEXT_VECTOR_SIZE = len(dense_embeddings[0])  # dimension text (1536 for text-embedding-3-small)
 
 # --- 3️⃣ Generate TEXT sparse embeddings (TF-IDF) ---
 tfidf_vectorizer = TfidfVectorizer(max_features=5000)  # ajustable
@@ -48,10 +68,19 @@ clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 IMAGE_VECTOR_SIZE = clip_model.config.vision_config.hidden_size  # 512
 
+# Combined vector size (text + image)
+COMBINED_VECTOR_SIZE = TEXT_VECTOR_SIZE + IMAGE_VECTOR_SIZE  # 1536 + 512 = 2048
+
 # --- 5️⃣ Connect to Qdrant ---
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
+if not QDRANT_URL or not QDRANT_API_KEY:
+    raise ValueError("QDRANT_URL and QDRANT_API_KEY environment variables are required")
+
 qdrant = QdrantClient(
-    url="https://ddee505b-ff10-4af6-91a3-b17b4a5ea857.us-east4-0.gcp.cloud.qdrant.io",
-    api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.t2k_5z1pOV10Y9VlQkWTNI-4-nA93A7rvolr2boTXhU",
+    url=QDRANT_URL,
+    api_key=QDRANT_API_KEY,
     timeout=60  # Increase timeout to 60 seconds
 )
 
@@ -64,14 +93,13 @@ except:
 qdrant.create_collection(
     collection_name="Products",
     vectors_config={
-        "text_vector": VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
-        "image_vector": VectorParams(size=IMAGE_VECTOR_SIZE, distance=Distance.COSINE)
+        "combined_vector": VectorParams(size=COMBINED_VECTOR_SIZE, distance=Distance.COSINE)
     },
     sparse_vectors_config={
         "text_sparse": SparseVectorParams()
     }
 )
-print("Collection created with text (dense + sparse) and image vectors")
+print(f"Collection created with combined text+image vector ({COMBINED_VECTOR_SIZE} dimensions) and sparse text vectors")
 
 # --- 7️⃣ Prepare points ---
 points = []
@@ -81,8 +109,8 @@ for idx, doc in enumerate(documents):
     if not description:
         continue
 
-    # --- Dense vector ---
-    dense_vector = dense_embeddings[idx].tolist()
+    # --- Dense vector (text from OpenAI) ---
+    text_vector = dense_embeddings[idx].tolist()
 
     # --- Sparse vector ---
     sparse_vector = SparseVector(
@@ -104,6 +132,9 @@ for idx, doc in enumerate(documents):
         except Exception as e:
             print(f"Impossible de traiter l'image {image_url}: {e}")
 
+    # --- Combine text and image vectors into one ---
+    combined_vector = text_vector + image_vector
+
     # --- Point ---
     # Extract nested rating fields
     rating_obj = doc.get("rating", {})
@@ -113,8 +144,7 @@ for idx, doc in enumerate(documents):
     point = PointStruct(
         id=idx,
         vector={
-            "text_vector": dense_vector,
-            "image_vector": image_vector,
+            "combined_vector": combined_vector,
             "text_sparse": sparse_vector
         },
         payload={
