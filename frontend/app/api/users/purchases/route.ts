@@ -59,15 +59,53 @@ export async function POST(request: NextRequest) {
     const db = await connectToDatabase();
     const collection = db.collection(COLLECTION_NAME);
 
-    // Find current budget range
+    // Check for duplicate purchase (prevent double submission)
+    // Look for a purchase with the same orderId or same items+total within last 5 seconds
     const user = await collection.findOne({ uid });
+    if (user?.purchases && user.purchases.length > 0) {
+      const recentPurchases = user.purchases.filter((p: any) => {
+        if (!p.purchasedAt) return false;
+        const purchaseTime = new Date(p.purchasedAt);
+        const now = new Date();
+        const timeDiff = now.getTime() - purchaseTime.getTime();
+        return timeDiff < 5000; // Within 5 seconds
+      });
+
+      // Check if this is a duplicate of a recent purchase
+      for (const recentPurchase of recentPurchases) {
+        if (orderId && recentPurchase.orderId === orderId) {
+          // Same orderId - definitely a duplicate
+          return NextResponse.json({
+            success: false,
+            message: 'Purchase already recorded',
+            duplicate: true,
+          }, { status: 200 });
+        }
+
+        // Check if items and total match (same purchase data)
+        if (recentPurchase.total === total &&
+            recentPurchase.items?.length === items.length &&
+            recentPurchase.items?.every((item: any, idx: number) => 
+              item.price === items[idx].price && 
+              item.quantity === (items[idx].quantity || 1)
+            )) {
+          // Likely the same purchase submitted twice
+          return NextResponse.json({
+            success: false,
+            message: 'Purchase already recorded',
+            duplicate: true,
+          }, { status: 200 });
+        }
+      }
+    }
+
+    // Update budget range
     const currentMin = user?.budgetRange?.min || 0;
     const currentMax = user?.budgetRange?.max || 0;
     const itemPrices = items.map((item: any) => item.price);
     const minPrice = Math.min(...itemPrices);
     const maxPrice = Math.max(...itemPrices);
 
-    // Update budget range
     const newBudgetMin = currentMin === 0 ? minPrice : Math.min(currentMin, minPrice);
     const newBudgetMax = Math.max(currentMax, maxPrice);
 
