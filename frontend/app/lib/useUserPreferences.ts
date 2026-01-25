@@ -17,6 +17,8 @@ const DEFAULT_BUDGET: BudgetRange = {
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   categories: [],
+  brands: [],
+  materials: [],
 };
 
 /**
@@ -39,6 +41,20 @@ export function useUserPreferences(): UserPreferenceData {
         setLoading(true);
         setError(null);
 
+        // Step 1: Sync preferences from wishlist and purchases (extract categories, brands, materials)
+        const syncResponse = await fetch(`/api/users/sync-preferences?uid=${user.uid}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${await user.getIdToken()}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!syncResponse.ok) {
+          console.warn('Failed to sync preferences, will use existing data');
+        }
+
+        // Step 2: Fetch user preferences
         const response = await fetch(`/api/users/preferences?uid=${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${await user.getIdToken()}`,

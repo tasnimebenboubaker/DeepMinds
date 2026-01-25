@@ -103,9 +103,13 @@ async def user_search(request: UserSearchRequest):
     1. Availability filter
     2. Hybrid search (dense + sparse vectors with MMR)
     3. Budget range filter
-    4. Preferences/category filter
-    5. Payment method filter
-    6. Custom reranking: final_score = semantic_score + 0.1*rate + 0.001*review_count
+    4. Category filter
+    5. Brand filter
+    6. Material filter
+    7. Payment method filter
+    8. Custom reranking: final_score = semantic_score + 0.1*rate + 0.001*review_count
+    9. MMR (Maximal Marginal Relevance) for diversity
+    10. Return top k results
     """
     if not has_qdrant:
         return {
@@ -116,6 +120,8 @@ async def user_search(request: UserSearchRequest):
                 "hybrid_search_applied": False,
                 "budget_filtered": False,
                 "category_filtered": False,
+                "brand_filtered": False,
+                "material_filtered": False,
                 "payment_method_matched": False
             },
             "timestamp": ""
@@ -163,7 +169,19 @@ async def user_search(request: UserSearchRequest):
                 if category not in request.preferences["categories"]:
                     continue
             
-            # Step 5: Filter by payment method (if specified)
+            # Step 5: Filter by brand preferences
+            brand = payload.get("brand", "")
+            if request.preferences and request.preferences.get("brands"):
+                if brand and brand not in request.preferences["brands"]:
+                    continue
+            
+            # Step 6: Filter by material preferences
+            material = payload.get("material", "")
+            if request.preferences and request.preferences.get("materials"):
+                if material and material not in request.preferences["materials"]:
+                    continue
+            
+            # Step 7: Filter by payment method (if specified)
             payment_methods = payload.get("payment_methods", [])
             payment_match = False
             if not request.preferredPaymentMethod:
@@ -174,7 +192,7 @@ async def user_search(request: UserSearchRequest):
             if not payment_match:
                 continue
             
-            # Step 6: Calculate final score with reranking formula
+            # Step 8: Calculate final score with reranking formula
             # final_score = semantic_score + 0.1 * rate + 0.001 * reviews_count
             semantic_score = float(res.score)
             rate = float(payload.get("rate", 0))
@@ -193,11 +211,11 @@ async def user_search(request: UserSearchRequest):
                 "payment_methods": payment_methods
             })
         
-        # Step 7: Apply MMR (Maximal Marginal Relevance) for diversity
+        # Step 9: Apply MMR (Maximal Marginal Relevance) for diversity
         # MMR balances relevance and diversity
         diversified_results = apply_mmr(search_results, lambda_param=0.7, k=request.top_k)
         
-        # Step 8: Sort by final score and return top k
+        # Step 10: Sort by final score and return top k
         final_results = sorted(diversified_results, key=lambda x: x["final_score"], reverse=True)[:request.top_k]
         
         recommendations = [
@@ -215,6 +233,8 @@ async def user_search(request: UserSearchRequest):
                 "hybrid_search_applied": True,
                 "budget_filtered": bool(request.budgetRange),
                 "category_filtered": bool(request.preferences and request.preferences.get("categories")),
+                "brand_filtered": bool(request.preferences and request.preferences.get("brands")),
+                "material_filtered": bool(request.preferences and request.preferences.get("materials")),
                 "payment_method_matched": bool(request.preferredPaymentMethod)
             },
             "timestamp": datetime.now().isoformat()
@@ -232,6 +252,8 @@ async def user_search(request: UserSearchRequest):
                 "hybrid_search_applied": False,
                 "budget_filtered": False,
                 "category_filtered": False,
+                "brand_filtered": False,
+                "material_filtered": False,
                 "payment_method_matched": False
             },
             "timestamp": ""

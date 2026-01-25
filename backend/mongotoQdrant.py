@@ -101,6 +101,72 @@ qdrant.create_collection(
 )
 print(f"Collection created with combined text+image vector ({COMBINED_VECTOR_SIZE} dimensions) and sparse text vectors")
 
+# --- Helper functions for extracting brand and material from title ---
+def extract_brand_from_title(title: str, category: str = None) -> str:
+    """
+    Extract brand from product title based on various formats
+    Clothing: "{brand} {product_type} in {material}" -> "Nike"
+    Jewelry: "{material} {product_type} by {brand}" -> "brand" (after " by ")
+    Electronics: "{brand} {product_type} with {material} finish" -> "Nike"
+    Home Appliances: "{brand} {product_type} with {material} design" -> "Brand"
+    Sports: "{brand} {product_type} for sports..." -> "Nike"
+    """
+    if not title:
+        return ""
+    
+    # Jewelry format: "{material} {product_type} by {brand}"
+    if category == "Jewelery" or " by " in title:
+        by_index = title.find(" by ")
+        if by_index != -1:
+            return title[by_index + 4:].strip().split()[0]  # First word after " by "
+    
+    # Default: first word is the brand (works for Clothing, Electronics, Home Appliances, Sports)
+    parts = title.split()
+    return parts[0] if parts else ""
+
+
+def extract_material_from_title(title: str, category: str = None) -> str:
+    """
+    Extract material from product title based on various formats
+    Clothing: "{brand} {product_type} in {material}" -> "Leather"
+    Jewelry: "{material} {product_type} by {brand}" -> "Gold" (first word)
+    Electronics: "{brand} {product_type} with {material} finish" -> "Aluminum"
+    Home Appliances: "{brand} {product_type} with {material} design" -> "Stainless Steel"
+    Sports: "{brand} {product_type} for sports..." -> "" (no material)
+    """
+    if not title:
+        return ""
+    
+    # Jewelry format: "{material} {product_type} by {brand}" - material is first word
+    if category == "Jewelery" or (" by " in title and " in " not in title):
+        parts = title.split()
+        return parts[0] if parts else ""
+    
+    # Clothing format: "{brand} {product_type} in {material}"
+    if " in " in title:
+        in_index = title.find(" in ")
+        return title[in_index + 4:].strip()
+    
+    # Electronics/Home Appliances format: "{brand} {product_type} with {material} (finish|design)"
+    if " with " in title:
+        with_index = title.find(" with ")
+        after_with = title[with_index + 6:].strip()
+        
+        # Remove trailing "finish" or "design"
+        finish_index = after_with.find(" finish")
+        design_index = after_with.find(" design")
+        
+        if finish_index != -1:
+            return after_with[:finish_index].strip()
+        elif design_index != -1:
+            return after_with[:design_index].strip()
+        
+        return after_with
+    
+    # Sports & Outdoors or other: no material
+    return ""
+
+
 # --- 7️⃣ Prepare points ---
 points = []
 
@@ -132,8 +198,14 @@ for idx, doc in enumerate(documents):
         except Exception as e:
             print(f"Impossible de traiter l'image {image_url}: {e}")
 
-    # --- Combine text and image vectors into one ---
+    # --- Combined text and image vectors into one ---
     combined_vector = text_vector + image_vector
+
+    # --- Extract brand and material from title ---
+    title = doc.get("title", "")
+    category = doc.get("category", "")
+    brand = extract_brand_from_title(title, category)
+    material = extract_material_from_title(title, category)
 
     # --- Point ---
     # Extract nested rating fields
@@ -149,6 +221,8 @@ for idx, doc in enumerate(documents):
         },
         payload={
             "category": doc.get("category", ""),
+            "brand": brand,
+            "material": material,
             "rate": rate,
             "review_count": review_count,
             "product_id": str(doc.get("id", uuid.uuid4())),

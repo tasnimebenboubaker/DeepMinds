@@ -6,6 +6,8 @@ export interface BudgetRange {
 
 export interface UserPreferences {
   categories?: string[];
+  brands?: string[];
+  materials?: string[];
   [key: string]: any; // Allow other preference fields
 }
 
@@ -26,8 +28,12 @@ export interface SearchResult {
 export interface SearchResponse {
   recommendations: SearchResult[];
   personalization_applied: {
+    availability_filtered: boolean;
+    hybrid_search_applied: boolean;
     budget_filtered: boolean;
     category_filtered: boolean;
+    brand_filtered: boolean;
+    material_filtered: boolean;
     payment_method_matched: boolean;
   };
   timestamp: string;
