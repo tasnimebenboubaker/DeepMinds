@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useLayoutEffect, useEffect } from 'react';
 import { FilterState, Product, CartItem, SortOption } from './types';
 import Navbar from './components/Navbar';
 import ProductCard from './components/ProductCard';
 import Filters from './components/Filters';
 import CartDrawer from './components/CartDrawer';
 import Footer from './components/Footer';
+import { useInitializeUserProfile } from './lib/useInitializeUserProfile';
 
 
 const DEFAULT_FILTERS: FilterState = {
@@ -16,8 +17,29 @@ const DEFAULT_FILTERS: FilterState = {
   sortBy: 'Featured',
 };
 
+// Helper function to load cart from localStorage safely
+const loadCartFromStorage = (): CartItem[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const savedCart = localStorage.getItem('orbitStore_cart');
+    if (savedCart) {
+      const parsedCart = JSON.parse(savedCart);
+      if (Array.isArray(parsedCart)) {
+        return parsedCart;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load cart from localStorage:', error);
+  }
+  return [];
+};
+
 const App: React.FC = () => {
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Initialize user profile on login
+  useInitializeUserProfile();
+
+  // Initialize state directly from localStorage
+  const [cart, setCart] = useState<CartItem[]>(loadCartFromStorage());
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [products, setProducts] = useState<Product[]>([]);
@@ -41,6 +63,17 @@ const App: React.FC = () => {
     })();
   }, []);
 
+  // Load cart from localStorage on mount with useLayoutEffect
+  // This runs BEFORE the first paint
+  // -------------------------
+  useLayoutEffect(() => {
+    const savedCart = loadCartFromStorage();
+    if (savedCart.length > 0) {
+      setCart(savedCart);
+    }
+  }, []);
+
+  // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('orbitStore_cart', JSON.stringify(cart));
   }, [cart]);
@@ -77,6 +110,14 @@ const App: React.FC = () => {
 
   const filteredProducts = useMemo(() => {
     const query = filters.searchQuery.trim().toLowerCase();
+    
+    // Helper to extract numeric rating value
+    const getRatingValue = (rating: Product['rating']): number => {
+      if (!rating) return 0;
+      if (typeof rating === 'number') return rating;
+      return (rating as any).rate ?? 0;
+    };
+
     const productsList = products.filter((product) => {
       const matchesCategory =
         filters.category === 'All' || product.category === filters.category;
@@ -84,6 +125,7 @@ const App: React.FC = () => {
       const matchesSearch =
         !query ||
         product.title.toLowerCase().includes(query) ||
+        product.name.toLowerCase().includes(query) ||
         product.description.toLowerCase().includes(query);
       return matchesCategory && matchesPrice && matchesSearch;
     });
@@ -98,6 +140,7 @@ const App: React.FC = () => {
         break;
       case 'Top Rated':
         productsList.sort((a, b) => b.rating - a.rating);
+        productsList.sort((a, b) => getRatingValue(b.rating) - getRatingValue(a.rating));
         break;
       case 'Featured':
       default:
@@ -187,7 +230,7 @@ const App: React.FC = () => {
                 onClick={scrollToProducts}
                 className="bg-white text-slate-900 font-black px-8 py-4 rounded-2xl hover:bg-indigo-500 hover:text-white transition-all active:scale-95 shadow-xl shadow-white/5"
               >
-                Shop Collection
+                Explore Collections
               </button>
             </div>
           </div>
@@ -205,12 +248,10 @@ const App: React.FC = () => {
               <div>
                 <h2 className="text-2xl font-black text-slate-800">
                   {filters.category === 'All'
-                    ? 'Collection'
+                    ? 'Our Collections'
                     : `${filters.category}`}
                 </h2>
-                <p className="text-slate-400 text-sm">
-                  Showing {filteredProducts.length} items
-                </p>
+               
               </div>
 
               <div className="flex items-center gap-2">

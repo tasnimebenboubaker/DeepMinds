@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "dotenv": "^17.2.3",
-    "mango": "^0.0.4",
+    "firebase": "^12.8.0",
+    "mongo": "^0.1.0",
     "mongodb": "^7.0.0",
     "next": "16.1.4",
     "react": "19.2.3",
