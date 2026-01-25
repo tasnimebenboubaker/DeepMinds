@@ -1,6 +1,6 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance
-from backend.config import QDRANT_URL, QDRANT_API_KEY
+from config import QDRANT_URL, QDRANT_API_KEY
 
 # connexion à Qdrant Cloud
 client = QdrantClient(
@@ -8,7 +8,7 @@ client = QdrantClient(
     api_key=QDRANT_API_KEY
 )
 
-COLLECTION_NAME = "DeepMinds"
+COLLECTION_NAME = "Products"
 
 # Crée ou recrée la collection (supprime si existante)
 client.recreate_collection(
