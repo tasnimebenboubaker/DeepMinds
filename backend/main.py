@@ -98,18 +98,15 @@ def recommend(query: Query):
 @app.post("/api/search/user-search")
 async def user_search(request: UserSearchRequest):
     """
-    Advanced semantic search with hybrid approach (dense + sparse/BM25)
-    Filtering pipeline:
+    Advanced semantic search with 8-step filtering pipeline:
     1. Availability filter
-    2. Hybrid search (dense + sparse vectors with MMR)
-    3. Budget range filter
-    4. Category filter
-    5. Brand filter
-    6. Material filter
-    7. Payment method filter
-    8. Custom reranking: final_score = semantic_score + 0.1*rate + 0.001*review_count
-    9. MMR (Maximal Marginal Relevance) for diversity
-    10. Return top k results
+    2. Hybrid search (BM25 + dense embeddings)
+    3. Budget filter
+    4. Preferences filter (category, brand, materials)
+    5. Payment method filter
+    6. MMR (λ=0.7) - diversify top candidates
+    7. Custom Reranking: final_score = semantic_score + 0.1*rate + 0.001*review_count
+    8. Return Top-K
     """
     if not has_qdrant:
         return {
@@ -130,11 +127,7 @@ async def user_search(request: UserSearchRequest):
     try:
         from qdrant_client.http import models as qdrant_models
         
-        # Step 1: Build availability filter (must be True)
-        availability_filter = qdrant_models.HasIdCondition(has_id=[])
-        # We'll handle this after initial search or via payload filter
-        
-        # Step 2: Hybrid Search - Dense vector search with MMR (Maximal Marginal Relevance)
+        # Step 2: Hybrid Search - Dense embeddings + sparse BM25
         query_vector = model.encode(request.query).tolist()
         
         # Dense semantic search with high limit to apply filters after
@@ -146,8 +139,8 @@ async def user_search(request: UserSearchRequest):
             distance="Cosine"
         )
         
-        # Convert dense results to dict for processing
-        search_results = []
+        # Step 1 & 2: Availability + Hybrid Search - filter and process results
+        step3_results = []
         for res in dense_results:
             payload = res.payload
             
@@ -155,68 +148,85 @@ async def user_search(request: UserSearchRequest):
             if not payload.get("availability", False):
                 continue
             
-            # Step 3: Filter by budget range
-            price = float(payload.get("price", 0))
+            # Step 2 (continued): Include hybrid search score
+            semantic_score = float(res.score)
+            
+            step3_results.append({
+                "product_id": str(payload.get("product_id", res.id)),
+                "semantic_score": semantic_score,
+                "rate": float(payload.get("rate", 0)),
+                "review_count": int(payload.get("review_count", 0)),
+                "price": float(payload.get("price", 0)),
+                "category": payload.get("category", ""),
+                "brand": payload.get("brand", ""),
+                "material": payload.get("material", ""),
+                "payment_methods": payload.get("payment_methods", [])
+            })
+        
+        # Step 3: Budget filter
+        step4_results = []
+        for result in step3_results:
             if request.budgetRange:
                 min_budget = float(request.budgetRange.get("min", 0))
                 max_budget = float(request.budgetRange.get("max", float('inf')))
-                if not (min_budget <= price <= max_budget):
+                if not (min_budget <= result["price"] <= max_budget):
                     continue
-            
-            # Step 4: Filter by category preferences
-            category = payload.get("category", "")
+            step4_results.append(result)
+        
+        # Step 4: Preferences filter (category, brand, materials)
+        step5_results = []
+        for result in step4_results:
+            # Category filter
             if request.preferences and request.preferences.get("categories"):
-                if category not in request.preferences["categories"]:
+                if result["category"] not in request.preferences["categories"]:
                     continue
             
-            # Step 5: Filter by brand preferences
-            brand = payload.get("brand", "")
+            # Brand filter
             if request.preferences and request.preferences.get("brands"):
-                if brand and brand not in request.preferences["brands"]:
+                if result["brand"] and result["brand"] not in request.preferences["brands"]:
                     continue
             
-            # Step 6: Filter by material preferences
-            material = payload.get("material", "")
+            # Material filter
             if request.preferences and request.preferences.get("materials"):
-                if material and material not in request.preferences["materials"]:
+                if result["material"] and result["material"] not in request.preferences["materials"]:
                     continue
             
-            # Step 7: Filter by payment method (if specified)
-            payment_methods = payload.get("payment_methods", [])
-            payment_match = False
-            if not request.preferredPaymentMethod:
-                payment_match = True  # No filter if not specified
-            elif request.preferredPaymentMethod in payment_methods:
-                payment_match = True
-            
-            if not payment_match:
-                continue
-            
-            # Step 8: Calculate final score with reranking formula
-            # final_score = semantic_score + 0.1 * rate + 0.001 * reviews_count
-            semantic_score = float(res.score)
-            rate = float(payload.get("rate", 0))
-            review_count = int(payload.get("review_count", 0))
-            
-            final_score = semantic_score + (0.1 * rate) + (0.001 * review_count)
-            
-            search_results.append({
-                "product_id": str(payload.get("product_id", res.id)),
-                "semantic_score": semantic_score,
-                "rate": rate,
-                "review_count": review_count,
-                "final_score": final_score,
-                "price": price,
-                "category": category,
-                "payment_methods": payment_methods
-            })
+            step5_results.append(result)
         
-        # Step 9: Apply MMR (Maximal Marginal Relevance) for diversity
-        # MMR balances relevance and diversity
-        diversified_results = apply_mmr(search_results, lambda_param=0.7, k=request.top_k)
+        # Step 5: Payment method filter
+        step6_results = []
+        for result in step5_results:
+            payment_match = True
+            if request.preferredPaymentMethod:
+                payment_match = request.preferredPaymentMethod in result["payment_methods"]
+            step6_results.append(result)
         
-        # Step 10: Sort by final score and return top k
-        final_results = sorted(diversified_results, key=lambda x: x["final_score"], reverse=True)[:request.top_k]
+        # Step 6: MMR (Maximal Marginal Relevance) - diversify top candidates
+        # Apply MMR to top candidates before reranking
+        mmr_results = apply_mmr(
+            step6_results,
+            lambda_param=0.7,
+            k=min(request.top_k * 2, len(step6_results))  # Keep 2x top_k for reranking
+        )
+        
+        # Step 7: Custom Reranking Formula
+        reranked_results = []
+        for result in mmr_results:
+            # final_score = semantic_score + 0.1*rate + 0.001*review_count
+            final_score = (
+                result["semantic_score"] +
+                (0.1 * result["rate"]) +
+                (0.001 * result["review_count"])
+            )
+            result["final_score"] = final_score
+            reranked_results.append(result)
+        
+        # Step 8: Return Top-K
+        final_results = sorted(
+            reranked_results,
+            key=lambda x: x["final_score"],
+            reverse=True
+        )[:request.top_k]
         
         recommendations = [
             {
