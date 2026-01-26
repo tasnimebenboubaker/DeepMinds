@@ -14,7 +14,7 @@ import torch
 import requests
 from io import BytesIO
 import uuid
-from sklearn.feature_extraction.text import TfidfVectorizer
+from rank_bm25 import BM25Okapi
 import numpy as np
 import os
 from dotenv import load_dotenv
@@ -51,17 +51,48 @@ response = openai_client.embeddings.create(
 dense_embeddings = [item.embedding for item in response.data]
 TEXT_VECTOR_SIZE = len(dense_embeddings[0])  # dimension text (1536 for text-embedding-3-small)
 
-# --- 3️⃣ Generate TEXT sparse embeddings (TF-IDF) ---
-tfidf_vectorizer = TfidfVectorizer(max_features=5000)  # ajustable
-sparse_matrix = tfidf_vectorizer.fit_transform(texts)
+# --- 3️⃣ Generate TEXT sparse embeddings (BM25) ---
+# Tokenize documents for BM25
+tokenized_texts = [text.lower().split() for text in texts]
+bm25 = BM25Okapi(tokenized_texts)
+
+# Create BM25 sparse vectors for Qdrant
 sparse_indices_list = []
 sparse_values_list = []
+vocab_to_idx = {}
+idx_counter = 0
 
-for row in sparse_matrix:
-    # row est un scipy.sparse row
-    row = row.tocoo()
-    sparse_indices_list.append(row.col.tolist())
-    sparse_values_list.append(row.data.tolist())
+# Build vocabulary from BM25 IDF
+for token in bm25.idf.keys():
+    vocab_to_idx[token] = idx_counter
+    idx_counter += 1
+
+# Generate sparse vectors for each document
+for i, tokens in enumerate(tokenized_texts):
+    doc_indices = []
+    doc_scores = []
+    
+    # Get unique tokens in this document
+    unique_tokens = set(tokens)
+    for token in unique_tokens:
+        if token in vocab_to_idx:
+            # Calculate BM25 score for this token in this document
+            token_indices = [j for j, t in enumerate(tokens) if t == token]
+            if token_indices:
+                idf = bm25.idf.get(token, 0.0)
+                token_freq = len(token_indices)
+                avg_doc_length = sum(len(doc) for doc in tokenized_texts) / len(tokenized_texts)
+                k1 = 1.5
+                b = 0.75
+                numerator = idf * token_freq * (k1 + 1)
+                denominator = token_freq + k1 * (1 - b + b * (len(tokens) / avg_doc_length))
+                bm25_score = numerator / denominator if denominator > 0 else 0.0
+                
+                doc_indices.append(vocab_to_idx[token])
+                doc_scores.append(bm25_score)
+    
+    sparse_indices_list.append(doc_indices)
+    sparse_values_list.append(doc_scores)
 
 # --- 4️⃣ Image embeddings model ---
 clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -99,7 +130,7 @@ qdrant.create_collection(
         "text_sparse": SparseVectorParams()
     }
 )
-print(f"Collection created with combined text+image vector ({COMBINED_VECTOR_SIZE} dimensions) and sparse text vectors")
+print(f"Collection created with combined text+image vector ({COMBINED_VECTOR_SIZE} dimensions) and BM25 sparse text vectors")
 
 # --- Helper functions for extracting brand and material from title ---
 def extract_brand_from_title(title: str, category: str = None) -> str:
@@ -169,19 +200,21 @@ def extract_material_from_title(title: str, category: str = None) -> str:
 
 # --- 7️⃣ Prepare points ---
 points = []
+embedding_idx = 0  # Track index in embeddings list
 
-for idx, doc in enumerate(documents):
+for doc_idx, doc in enumerate(documents):
     description = doc.get("description")
     if not description:
         continue
 
     # --- Dense vector (text from OpenAI) ---
-    text_vector = dense_embeddings[idx].tolist()
+    # dense_embeddings is already a list of lists
+    text_vector = dense_embeddings[embedding_idx] if isinstance(dense_embeddings[embedding_idx], list) else dense_embeddings[embedding_idx].tolist()
 
     # --- Sparse vector ---
     sparse_vector = SparseVector(
-        indices=sparse_indices_list[idx],
-        values=sparse_values_list[idx]
+        indices=sparse_indices_list[embedding_idx],
+        values=sparse_values_list[embedding_idx]
     )
 
     # --- Image vector ---
@@ -214,7 +247,7 @@ for idx, doc in enumerate(documents):
     review_count = int(rating_obj.get("count", 0)) if isinstance(rating_obj, dict) else 0
     
     point = PointStruct(
-        id=idx,
+        id=doc_idx,
         vector={
             "combined_vector": combined_vector,
             "text_sparse": sparse_vector
@@ -232,6 +265,9 @@ for idx, doc in enumerate(documents):
         }
     )
     points.append(point)
+    
+    # Increment embedding index only for documents with descriptions
+    embedding_idx += 1
 
 # --- 8️⃣ Upload points to Qdrant (in batches) ---
 batch_size = 50  # Upload in batches of 50 points
@@ -247,4 +283,107 @@ for i in range(0, len(points), batch_size):
         print(f"Error uploading batch: {e}")
         continue
 
-print("Data successfully uploaded with dense + sparse text vectors and image vectors!")
+print("Data successfully uploaded with dense + BM25 sparse text vectors and image vectors!")
+
+# --- 9️⃣ Populate Users collection with user embeddings from MongoDB ---
+print("\nPopulating users collection...")
+
+# Create users collection
+try:
+    qdrant.delete_collection("users")
+except:
+    pass
+
+qdrant.create_collection(
+    collection_name="users",
+    vectors_config={
+        "user_embedding": VectorParams(size=TEXT_VECTOR_SIZE, distance=Distance.COSINE)
+    }
+)
+
+# Connect to MongoDB to fetch users
+users_db = client["DataBaseDM"]
+users_collection = users_db["users"]
+all_users = list(users_collection.find({}))
+
+def compute_user_embedding_text(user_doc):
+    """Generate embedding text from user's purchases and wishlist"""
+    text_parts = []
+    
+    # Add purchases
+    if user_doc.get("purchases"):
+        for purchase in user_doc["purchases"]:
+            if purchase.get("items"):
+                for item in purchase["items"]:
+                    title = item.get("title", "")
+                    category = item.get("category", "")
+                    if title and category:
+                        text_parts.append(f"{title} ({category})")
+    
+    # Add wishlist items
+    if user_doc.get("wishlist"):
+        for item in user_doc["wishlist"]:
+            name = item.get("name", "")
+            category = item.get("category", "")
+            if name and category:
+                text_parts.append(f"{name} ({category})")
+    
+    # If no items, use preference text
+    if not text_parts:
+        categories = user_doc.get("preferences", {}).get("categories", [])
+        if categories:
+            text_parts = [f"Interested in {cat}" for cat in categories]
+    
+    # Create embedding text
+    embedding_text = " ".join(text_parts) if text_parts else "General user"
+    return embedding_text
+
+user_points = []
+for user_idx, user_doc in enumerate(all_users):
+    uid = user_doc.get("uid")
+    if not uid:
+        continue
+    
+    # Compute embedding text and encode
+    embedding_text = compute_user_embedding_text(user_doc)
+    user_embedding = openai_client.embeddings.create(
+        model="text-embedding-3-small",
+        input=embedding_text
+    ).data[0].embedding
+    
+    # Create user point
+    user_point = PointStruct(
+        id=user_idx,
+        vector={"user_embedding": user_embedding},
+        payload={
+            "user_id": uid,
+            "preferredPaymentMethod": user_doc.get("preferredPaymentMethod", "card"),
+            "budget_min": user_doc.get("budgetRange", {}).get("min", 0),
+            "budget_max": user_doc.get("budgetRange", {}).get("max", 10000),
+            "preferred_categories": user_doc.get("preferences", {}).get("categories", []),
+            "preferred_brands": user_doc.get("preferences", {}).get("brands", []),
+            "preferred_materials": user_doc.get("preferences", {}).get("materials", []),
+            "last_updated": user_doc.get("updatedAt", ""),
+        }
+    )
+    user_points.append(user_point)
+
+# Upload user points in batches
+if user_points:
+    batch_size = 50
+    for i in range(0, len(user_points), batch_size):
+        batch = user_points[i:i+batch_size]
+        try:
+            qdrant.upsert(
+                collection_name="users",
+                points=batch
+            )
+            print(f"Uploaded user batch {i//batch_size + 1}/{(len(user_points) + batch_size - 1)//batch_size}")
+        except Exception as e:
+            print(f"Error uploading user batch: {e}")
+            continue
+    print(f"✅ Successfully uploaded {len(user_points)} users to Qdrant!")
+else:
+    print("⚠️ No users found in MongoDB")
+
+print("\n✅ All data successfully synced to Qdrant!")

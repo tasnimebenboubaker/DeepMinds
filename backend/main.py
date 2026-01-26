@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+from pymongo import MongoClient
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +20,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# MongoDB connection
+MONGODB_URI = os.getenv("MONGODB_URI")
+DB_NAME = os.getenv("DB_NAME", "DataBaseDM")
+if MONGODB_URI:
+    mongo_client = MongoClient(MONGODB_URI)
+    db = mongo_client[DB_NAME]
+    users_collection = db["users"]
+    products_collection = db["Products"]
+else:
+    mongo_client = None
+    db = None
+    users_collection = None
+    products_collection = None
 
 # Try to import optional dependencies
 try:
@@ -57,6 +72,11 @@ class UserSearchRequest(BaseModel):
     budgetRange: dict
     preferences: dict
     preferredPaymentMethod: str
+    top_k: int = 15
+
+# --- Request model for recommendations without query ---
+class UserRecommendationRequest(BaseModel):
+    userId: str
     top_k: int = 15
 
 # --- Response model ---
@@ -319,6 +339,211 @@ def apply_mmr(results: list, lambda_param: float = 0.7, k: int = 10) -> list:
         remaining.remove(best_candidate)
     
     return selected
+
+
+def compute_user_embedding(user_doc: dict) -> list:
+    """
+    Compute user embedding from purchases and wishlist
+    Combines product titles + categories into text, then embeds
+    """
+    if not model:
+        return [0.0] * 1536  # Return zero vector if model not available
+    
+    text_parts = []
+    
+    # Add purchases
+    if user_doc.get("purchases"):
+        for purchase in user_doc["purchases"]:
+            if purchase.get("items"):
+                for item in purchase["items"]:
+                    title = item.get("title", "")
+                    category = item.get("category", "")
+                    if title and category:
+                        text_parts.append(f"{title} ({category})")
+    
+    # Add wishlist items
+    if user_doc.get("wishlist"):
+        for item in user_doc["wishlist"]:
+            name = item.get("name", "")
+            category = item.get("category", "")
+            if name and category:
+                text_parts.append(f"{name} ({category})")
+    
+    # If no items, use preference text
+    if not text_parts:
+        categories = user_doc.get("preferences", {}).get("categories", [])
+        if categories:
+            text_parts = [f"Interested in {cat}" for cat in categories]
+    
+    # Create embedding text
+    embedding_text = " ".join(text_parts) if text_parts else "General user"
+    
+    # Encode to vector
+    user_vector = model.encode(embedding_text).tolist()
+    return user_vector
+
+
+@app.post("/api/recommendations/for-you")
+async def recommendations_for_you(request: UserRecommendationRequest):
+    """
+    Recommendations without search query - uses user embedding
+    Pipeline:
+    1. Fetch user from MongoDB
+    2. Compute/retrieve user embedding
+    3. Store in Qdrant users collection
+    4. Qdrant search with filters (availability, budget, payment)
+    5. Apply MMR and reranking
+    6. Return top-K
+    """
+    if not has_qdrant or not users_collection:
+        return {
+            "error": "Service not available",
+            "recommendations": [],
+            "timestamp": ""
+        }
+    
+    try:
+        # Step 1: Fetch user from MongoDB
+        user_doc = users_collection.find_one({"uid": request.userId})
+        if not user_doc:
+            return {
+                "error": "User not found",
+                "recommendations": [],
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Step 2: Compute user embedding
+        user_embedding = compute_user_embedding(user_doc)
+        
+        # Step 3: Store/update user embedding in Qdrant
+        user_payload = {
+            "user_id": request.userId,
+            "preferredPaymentMethod": user_doc.get("preferredPaymentMethod", "card"),
+            "budget_min": user_doc.get("budgetRange", {}).get("min", 0),
+            "budget_max": user_doc.get("budgetRange", {}).get("max", float('inf')),
+            "preferred_categories": user_doc.get("preferences", {}).get("categories", []),
+            "preferred_brands": user_doc.get("preferences", {}).get("brands", []),
+            "preferred_materials": user_doc.get("preferences", {}).get("materials", []),
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        # Store in Qdrant users collection
+        try:
+            from qdrant_client.http.models import PointStruct
+            user_point = PointStruct(
+                id=hash(request.userId) % (2**31),  # Deterministic ID from user ID
+                vector=user_embedding,
+                payload=user_payload
+            )
+            client.upsert(
+                collection_name="users",
+                points=[user_point]
+            )
+        except Exception as e:
+            print(f"Warning: Could not store user embedding: {e}")
+        
+        # Step 4: Qdrant search with filters
+        from qdrant_client.http import models as qdrant_models
+        
+        # Build filters
+        filters = qdrant_models.Filter(
+            must=[
+                qdrant_models.HasPayloadCondition(key="availability"),
+                qdrant_models.MatchValue(key="availability", value=True),
+            ]
+        )
+        
+        search_results = client.search(
+            collection_name="Products",
+            query_vector=user_embedding,
+            query_filter=filters,
+            limit=100,  # Get more to apply MMR
+            with_payload=True,
+            distance="Cosine"
+        )
+        
+        # Filter by budget, payment, preferences
+        filtered_results = []
+        for res in search_results:
+            payload = res.payload
+            
+            # Budget filter
+            price = float(payload.get("price", 0))
+            if not (user_payload["budget_min"] <= price <= user_payload["budget_max"]):
+                continue
+            
+            # Payment method filter
+            if user_payload["preferredPaymentMethod"]:
+                payment_methods = payload.get("payment_methods", [])
+                if user_payload["preferredPaymentMethod"] not in payment_methods:
+                    continue
+            
+            # Category filter (soft - not required)
+            category = payload.get("category", "")
+            if user_payload["preferred_categories"] and category not in user_payload["preferred_categories"]:
+                # Soft filter - include but rank lower
+                pass
+            
+            filtered_results.append({
+                "product_id": str(payload.get("product_id", res.id)),
+                "semantic_score": float(res.score),
+                "rate": float(payload.get("rate", 0)),
+                "review_count": int(payload.get("review_count", 0)),
+                "price": price,
+                "category": category,
+                "brand": payload.get("brand", ""),
+                "material": payload.get("material", "")
+            })
+        
+        # Step 5: Apply MMR
+        mmr_results = apply_mmr(
+            filtered_results,
+            lambda_param=0.7,
+            k=min(request.top_k * 2, len(filtered_results))
+        )
+        
+        # Apply reranking formula
+        reranked_results = []
+        for result in mmr_results:
+            final_score = (
+                result["semantic_score"] +
+                (0.1 * result["rate"]) +
+                (0.001 * result["review_count"])
+            )
+            result["final_score"] = final_score
+            reranked_results.append(result)
+        
+        # Step 6: Return top-K
+        final_results = sorted(
+            reranked_results,
+            key=lambda x: x["final_score"],
+            reverse=True
+        )[:request.top_k]
+        
+        recommendations = [
+            {
+                "product_id": result["product_id"],
+                "score": result["final_score"]
+            }
+            for result in final_results
+        ]
+        
+        return {
+            "recommendations": recommendations,
+            "user_embedding_computed": True,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Recommendation error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "error": str(e),
+            "recommendations": [],
+            "timestamp": ""
+        }
+
 
 # --- Endpoint: hierarchical tree data ---
 @app.get("/tree")
