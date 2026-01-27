@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../lib/authContext';
 import { getAzureBlobUrl, isValidBlobUrl } from '../lib/azure';
@@ -15,6 +15,7 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   React.useEffect(() => {
     // Load cart from localStorage
@@ -65,6 +66,11 @@ export default function CheckoutPage() {
   const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const handleCheckout = async () => {
+    // Prevent double submission
+    if (isSubmittingRef.current || isProcessing) {
+      return;
+    }
+
     if (!user) {
       setError('You must be logged in to checkout');
       return;
@@ -75,6 +81,8 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Mark as submitting
+    isSubmittingRef.current = true;
     setIsProcessing(true);
     setError('');
 
@@ -143,6 +151,7 @@ export default function CheckoutPage() {
       setError(err instanceof Error ? err.message : 'Checkout failed');
     } finally {
       setIsProcessing(false);
+      isSubmittingRef.current = false;
     }
   };
 

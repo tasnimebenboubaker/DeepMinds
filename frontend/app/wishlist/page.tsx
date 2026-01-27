@@ -25,10 +25,30 @@ export default function WishlistPage() {
     setLoading(false);
   }, []);
 
-  const handleRemoveFromWishlist = (productId: string) => {
+  const handleRemoveFromWishlist = async (productId: string) => {
     const updatedWishlist = wishlist.filter((item) => item.id !== productId);
     setWishlist(updatedWishlist);
     localStorage.setItem('orbitStore_wishlist', JSON.stringify(updatedWishlist));
+
+    // Update MongoDB
+    try {
+      const uid = localStorage.getItem('user_uid');
+      if (uid) {
+        const response = await fetch('/api/users/wishlist', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ uid, productId }),
+        });
+
+        if (!response.ok) {
+          console.error('Failed to remove from wishlist in MongoDB');
+        }
+      }
+    } catch (error) {
+      console.error('Error removing from wishlist:', error);
+    }
   };
 
   const handleAddToCart = (product: Product) => {
@@ -238,9 +258,25 @@ export default function WishlistPage() {
               Continue Shopping
             </Link>
             <button
-              onClick={() => {
+              onClick={async () => {
                 localStorage.removeItem('orbitStore_wishlist');
                 setWishlist([]);
+
+                // Update MongoDB to clear wishlist
+                try {
+                  const uid = localStorage.getItem('user_uid');
+                  if (uid) {
+                    await fetch('/api/users/wishlist/clear', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ uid }),
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error clearing wishlist:', error);
+                }
               }}
               className="px-8 py-3 bg-red-100 text-red-700 rounded-lg font-bold hover:bg-red-200 transition-colors"
             >

@@ -29,26 +29,17 @@ export async function GET(request: NextRequest) {
 
     // Build user profile for recommendation system
     const userProfile = {
+      budgetRange: user.budgetRange || { min: 0, max: 10000 },
+      preferences: {
+        categories: user.preferences?.categories || [],
+        brands: user.preferences?.brands || [],
+        materials: user.preferences?.materials || [],
+      },
+      preferredPaymentMethod: user.preferredPaymentMethod || 'card',
+      // Additional metadata
       uid,
       email: user.email,
       displayName: user.displayName,
-      // Favorite categories from wishlist + purchases
-      preferences: {
-        favoriteCategories: [...new Set(user.preferences?.favoriteCategories || [])],
-      },
-      // User purchase behavior
-      purchaseHistory: {
-        totalPurchases: user.purchases?.length || 0,
-        categories: [...new Set(user.purchases?.map((p: any) => p.category) || [])],
-        totalSpent: user.purchases?.reduce((sum: number, p: any) => sum + p.price, 0) || 0,
-      },
-      // Budget insight
-      budgetRange: user.budgetRange || { min: 0, max: 0 },
-      // Payment preference
-      preferredPaymentMethod: user.preferredPaymentMethod,
-      // Wishlist insight
-      wishlistItems: user.wishlist?.length || 0,
-      wishlistCategories: user.wishlist?.map((w: any) => w.category) || [],
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

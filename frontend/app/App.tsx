@@ -1,5 +1,5 @@
 "use client";
-
+import Image from 'next/image';
 import React, { useState, useMemo, useLayoutEffect, useEffect } from 'react';
 import { FilterState, Product, CartItem, SortOption } from './types';
 import Navbar from './components/Navbar';
@@ -88,7 +88,19 @@ const App: React.FC = () => {
           throw new Error('Failed to fetch products');
         }
         const data = await response.json();
-        setProducts(data);
+        
+        // Normalize product data: ensure id field exists
+        const normalizedProducts = (Array.isArray(data) ? data : []).map((product: any) => ({
+          ...product,
+          id: product.id || product._id?.toString?.() || Math.random().toString(36).substr(2, 9),
+          name: product.name || product.title || '',
+          description: product.description || '',
+          price: product.price || 0,
+          category: product.category || 'Electronics',
+          image: product.image || '',
+        }));
+        
+        setProducts(normalizedProducts);
       } catch (err) {
         console.error('Error fetching products:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
@@ -122,11 +134,15 @@ const App: React.FC = () => {
       const matchesCategory =
         filters.category === 'All' || product.category === filters.category;
       const matchesPrice = product.price <= filters.maxPrice;
+      
+      // Safe search with fallback for name/title fields
+      const productName = (product.name || product.title || '').toLowerCase();
+      const productDescription = (product.description || '').toLowerCase();
       const matchesSearch =
         !query ||
-        product.title.toLowerCase().includes(query) ||
-        product.name.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query);
+        productName.includes(query) ||
+        productDescription.includes(query);
+      
       return matchesCategory && matchesPrice && matchesSearch;
     });
 
@@ -208,11 +224,13 @@ const App: React.FC = () => {
         <section className="mb-20">
           <div className="relative rounded-3xl overflow-hidden h-[400px] bg-slate-900 flex items-center px-12">
             <div className="absolute inset-0 opacity-40">
-              <img
-                src="https://picsum.photos/id/119/1200/600"
-                alt="Hero"
-                className="w-full h-full object-cover grayscale"
-              />
+                        <Image
+              src="https://picsum.photos/id/119/1200/600"
+              alt="Hero"
+              fill
+              className="object-cover grayscale"
+              priority
+            />
             </div>
             <div className="relative z-10 max-w-2xl space-y-6">
               <span className="inline-block bg-indigo-600/20 text-indigo-400 font-bold px-4 py-1 rounded-full text-sm border border-indigo-500/30">
