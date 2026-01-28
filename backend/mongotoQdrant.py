@@ -40,7 +40,7 @@ if not OPENAI_API_KEY:
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 documents = list(collection.find({}))
-texts = [doc.get("description", "") for doc in documents if doc.get("description")]
+texts = [f"{doc.get('title', '')} {doc.get('category', '')} {doc.get('description', '')}" for doc in documents if doc.get("description")]
 
 # Get embeddings from OpenAI API
 response = openai_client.embeddings.create(

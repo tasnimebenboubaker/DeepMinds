@@ -60,11 +60,6 @@ collection_name = "Products"
 def health():
     return {"status": "ok", "qdrant_available": has_qdrant}
 
-# --- Request model for semantic search ---
-class Query(BaseModel):
-    text: str
-    top_k: int = 15
-
 # --- Request model for user search with preferences ---
 class UserSearchRequest(BaseModel):
     query: str
@@ -88,31 +83,6 @@ class SearchResponse(BaseModel):
     recommendations: list[SearchResult]
     personalization_applied: bool
     timestamp: str
-
-# --- Endpoint: semantic search / recommendations ---
-@app.post("/recommend")
-def recommend(query: Query):
-    if not has_qdrant:
-        return {"error": "Qdrant service not available"}
-    
-    query_vector = model.encode(query.text).tolist()
-    results = client.search(
-        collection_name=collection_name,
-        query_vector=query_vector,
-        limit=query.top_k,
-        with_payload=True,
-        distance="Cosine"
-    )
-    response = [
-        {
-            "id": res.id,
-            "title": res.payload.get("title", str(res.id)),
-            "category": res.payload.get("category", ""),
-            "score": res.score
-        }
-        for res in results
-    ]
-    return {"recommendations": response}
 
 # --- Endpoint: user search with preferences and advanced filtering ---
 @app.post("/api/search/user-search")
