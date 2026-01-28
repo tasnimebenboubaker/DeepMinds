@@ -219,17 +219,31 @@ for doc_idx, doc in enumerate(documents):
 
     # --- Image vector ---
     image_vector = [0.0] * IMAGE_VECTOR_SIZE
-    image_url = doc.get("image_url")
-    if image_url:
+    image_path = doc.get("image_url") or doc.get("image")
+    if image_path:
         try:
-            response = requests.get(image_url)
+            # Get Azure Blob Storage base URL
+            azure_base_url = os.getenv("AZURE_STORAGE_BASE_URL")
+            
+            if azure_base_url:
+                # Extract filename from path
+                # If path is 'synthetic_images/product_198.png', extract 'product_198.png'
+                filename = image_path.split('/')[-1] if '/' in image_path else image_path
+                
+                # Construct full Azure URL
+                full_url = f"{azure_base_url.rstrip('/')}/{filename}"
+            else:
+                # Fallback: assume image_path is already a full URL
+                full_url = image_path
+            
+            response = requests.get(full_url)
             image = Image.open(BytesIO(response.content)).convert("RGB")
             inputs = clip_processor(images=image, return_tensors="pt")
             with torch.no_grad():
                 img_emb = clip_model.get_image_features(**inputs)
             image_vector = img_emb[0].numpy().tolist()
         except Exception as e:
-            print(f"Impossible de traiter l'image {image_url}: {e}")
+            print(f"Impossible de traiter l'image {image_path}: {e}")
 
     # --- Combined text and image vectors into one ---
     combined_vector = text_vector + image_vector
