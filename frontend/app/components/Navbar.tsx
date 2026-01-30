@@ -127,6 +127,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onCartToggle, searchQuery, o
           )}
         </form>
 
+
         {/* Right Section - Cart & Auth */}
         <div className="flex items-center gap-4">
           {/* Cart Trigger */}
