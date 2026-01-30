@@ -222,6 +222,7 @@ for idx, user in enumerate(users):
         )
     )
 
+
 if user_points:
     qdrant.upsert(collection_name="users", points=user_points)
 
