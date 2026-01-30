@@ -87,9 +87,10 @@ We combine **semantic understanding (vector embeddings)** with **hard financial 
 
 ```
 ├── backend/
-│ ├── __pycache__/ # Python cache (not versioned)
+│ ├── __pycache__/ # Python cache 
 │ ├── config.py # Environment variables & global config
-│ ├── evaluation/
+│ ├── system-evaluation/
+| ├── __pycache__/ # Python cache 
 │ │ ├── offline_evaluation.py # Precision@K, Recall@K, hybrid search eval
 │ │ └── online_evaluation.py # CTR, add-to-cart, constraint checks
 │ ├── mongotoqdrant.py # MongoDB → Qdrant sync + hybrid retrieval
