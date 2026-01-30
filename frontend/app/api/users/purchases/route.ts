@@ -99,17 +99,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update budget range
-    const currentMin = user?.budgetRange?.min || 0;
-    const currentMax = user?.budgetRange?.max || 0;
-    const itemPrices = items.map((item: any) => item.price);
-    const minPrice = Math.min(...itemPrices);
-    const maxPrice = Math.max(...itemPrices);
-
-    const newBudgetMin = currentMin === 0 ? minPrice : Math.min(currentMin, minPrice);
-    const newBudgetMax = Math.max(currentMax, maxPrice);
-
-    // Add purchase as a single order record with all items
+    // Add purchase first
     const result = await collection.updateOne(
       { uid },
       {
@@ -128,17 +118,28 @@ export async function POST(request: NextRequest) {
             purchasedAt: new Date().toISOString(),
           },
         },
-        $set: {
-          budgetRange: { min: newBudgetMin, max: newBudgetMax },
-          updatedAt: new Date().toISOString(),
-        },
       } as any,
       { upsert: true }
     );
 
-    // Update preferred payment method (most used one) - after adding purchase
+    // Recalculate budget range from ALL purchases (min/max of all purchased item prices)
     const updatedUser = await collection.findOne({ uid });
     if (updatedUser?.purchases && updatedUser.purchases.length > 0) {
+      // Extract all item prices from all purchases
+      const allItemPrices: number[] = [];
+      for (const purchase of updatedUser.purchases) {
+        if (purchase.items && Array.isArray(purchase.items)) {
+          for (const item of purchase.items) {
+            allItemPrices.push(item.price);
+          }
+        }
+      }
+
+      // Calculate actual min and max from all purchased items
+      const budgetMin = allItemPrices.length > 0 ? Math.min(...allItemPrices) : 0;
+      const budgetMax = allItemPrices.length > 0 ? Math.max(...allItemPrices) : 0;
+
+      // Update payment method counts
       const paymentCounts = updatedUser.purchases.reduce((acc: any, p: any) => {
         acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + 1;
         return acc;
@@ -148,9 +149,16 @@ export async function POST(request: NextRequest) {
         paymentCounts[a] > paymentCounts[b] ? a : b
       );
 
+      // Update both budget range and preferred payment method
       await collection.updateOne(
         { uid },
-        { $set: { preferredPaymentMethod: preferredMethod } }
+        {
+          $set: {
+            budgetRange: { min: budgetMin, max: budgetMax },
+            preferredPaymentMethod: preferredMethod,
+            updatedAt: new Date().toISOString(),
+          },
+        }
       );
     }
 

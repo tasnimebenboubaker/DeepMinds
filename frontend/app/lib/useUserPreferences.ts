@@ -12,7 +12,7 @@ export interface UserPreferenceData {
 
 const DEFAULT_BUDGET: BudgetRange = {
   min: 0,
-  max: 10000,
+  max: 1000,
 };
 
 const DEFAULT_PREFERENCES: UserPreferences = {
