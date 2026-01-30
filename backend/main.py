@@ -558,13 +558,37 @@ async def user_search(request: UserSearchRequest):
         base_list = reranked_results if reranked_results else candidates
         final_results = sorted(base_list, key=lambda x: x.get("final_score", 0.0), reverse=True)[:request.top_k]
         
-        recommendations = [
-            {
-                "product_id": result["product_id"],
-                "score": result["final_score"]
-            }
-            for result in final_results
-        ]
+        # Fetch full product details from MongoDB using product_ids
+        recommendations = []
+        for result in final_results:
+            product_id = result.get("product_id", "")
+            if not product_id:
+                continue
+            
+            # Try to find product in MongoDB by id field
+            mongo_product = None
+            if products_collection is not None:
+                mongo_product = products_collection.find_one({"id": product_id})
+            
+            if mongo_product:
+                recommendations.append({
+                    "id": str(mongo_product.get("id", mongo_product.get("_id", product_id))),
+                    "product_id": str(mongo_product.get("id", product_id)),
+                    "title": mongo_product.get("title", "Unknown"),
+                    "name": mongo_product.get("title", "Unknown"),
+                    "description": mongo_product.get("description", ""),
+                    "price": float(mongo_product.get("price", 0)),
+                    "category": mongo_product.get("category", ""),
+                    "brand": mongo_product.get("brand", ""),
+                    "material": mongo_product.get("material", ""),
+                    "image": mongo_product.get("image", mongo_product.get("image_url", "")),
+                    "rating": {
+                        "rate": float(mongo_product.get("rating", {}).get("rate", mongo_product.get("rate", 0)) if isinstance(mongo_product.get("rating"), dict) else mongo_product.get("rate", 0)),
+                        "count": int(mongo_product.get("rating", {}).get("count", mongo_product.get("review_count", 0)) if isinstance(mongo_product.get("rating"), dict) else mongo_product.get("review_count", 0))
+                    },
+                    "payment_methods": mongo_product.get("payment_methods", []),
+                    "score": result.get("final_score", 0)
+                })
         
         return {
             "recommendations": recommendations,
