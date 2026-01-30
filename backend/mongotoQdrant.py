@@ -213,7 +213,12 @@ for idx, user in enumerate(users):
         PointStruct(
             id=idx,
             vector={"user_embedding": user_emb},
-            payload={"user_id": uid}
+            payload={
+                "user_id": uid,
+                "preferences": user.get("preferences", {}),
+                "budgetRange": user.get("budgetRange", {}),
+                "preferredPaymentMethod": user.get("preferredPaymentMethod", "")
+            }
         )
     )
 
